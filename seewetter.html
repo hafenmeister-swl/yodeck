@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+
+<html lang="de">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<meta
+    http-equiv="refresh"
+    content="1800"
+>
+
+<title>Seewetterbericht Ostsee</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+}
+
+body {
+
+    background:
+        linear-gradient(
+            180deg,
+            #041522 0%,
+            #08283b 55%,
+            #03111c 100%
+        );
+
+    color: #f4f8fa;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    overflow: hidden;
+}
+
+
+/* ---------------------------------------------------------
+   HEADER
+   --------------------------------------------------------- */
+
+.header {
+
+    position: fixed;
+
+    z-index: 10;
+
+    top: 0;
+    left: 0;
+    right: 0;
+
+    min-height: 125px;
+
+    padding: 24px 55px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(3,17,28,0.99),
+            rgba(3,17,28,0.92)
+        );
+
+    border-bottom:
+        2px solid rgba(100,190,220,0.25);
+
+    box-shadow:
+        0 5px 25px rgba(0,0,0,0.4);
+}
+
+
+.title {
+
+    margin: 0;
+
+    font-size: 42px;
+
+    line-height: 1.1;
+
+    font-weight: 700;
+
+    letter-spacing: 0.5px;
+}
+
+
+.subtitle {
+
+    margin-top: 7px;
+
+    font-size: 20px;
+
+    color: #85cfe5;
+}
+
+
+.timestamp {
+
+    position: absolute;
+
+    right: 55px;
+    top: 30px;
+
+    padding: 12px 20px;
+
+    border-radius: 8px;
+
+    border:
+        1px solid rgba(100,210,235,0.45);
+
+    background:
+        rgba(20,95,120,0.4);
+
+    color: #c5f3fc;
+
+    font-size: 23px;
+
+    font-weight: 700;
+
+    white-space: nowrap;
+}
+
+
+/* ---------------------------------------------------------
+   SCROLLING AREA
+   --------------------------------------------------------- */
+
+.viewport {
+
+    position: fixed;
+
+    top: 125px;
+    bottom: 0;
+
+    left: 0;
+    right: 0;
+
+    overflow: hidden;
+}
+
+
+.scroller {
+
+    width: 100%;
+
+    animation:
+        autoScroll 110s
+        linear
+        infinite;
+}
+
+
+.report {
+
+    max-width: 1250px;
+
+    margin: 0 auto;
+
+    padding:
+        45px 70px 300px;
+}
+
+
+/* ---------------------------------------------------------
+   SECTIONS
+   --------------------------------------------------------- */
+
+.weather-section {
+
+    margin-bottom: 40px;
+}
+
+
+.weather-section h2 {
+
+    margin: 0 0 18px;
+
+    padding-bottom: 9px;
+
+    border-bottom:
+        2px solid rgba(110,205,230,0.3);
+
+    color: #7fd4ed;
+
+    font-size: 32px;
+
+    line-height: 1.2;
+}
+
+
+.weather-section p {
+
+    margin:
+        0 0 20px;
+
+    font-size: 28px;
+
+    line-height: 1.6;
+
+    color: #f3f7f9;
+}
+
+
+/* ---------------------------------------------------------
+   FOOTER
+   --------------------------------------------------------- */
+
+.source {
+
+    margin-top: 40px;
+
+    padding-top: 25px;
+
+    border-top:
+        1px solid rgba(120,190,210,0.25);
+
+    color: #88a8b5;
+
+    font-size: 17px;
+
+    line-height: 1.5;
+}
+
+
+/* ---------------------------------------------------------
+   AUTOMATIC SCROLL
+   --------------------------------------------------------- */
+
+@keyframes autoScroll {
+
+    0% {
+        transform: translateY(0);
+    }
+
+    8% {
+        transform: translateY(0);
+    }
+
+    92% {
+        transform:
+            translateY(
+                calc(-100% + 650px)
+            );
+    }
+
+    100% {
+        transform: translateY(0);
+    }
+
+}
+
+
+/* ---------------------------------------------------------
+   YODECK / SMALLER SCREEN
+   --------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+
+    .header {
+        padding: 20px 30px;
+    }
+
+    .title {
+        font-size: 32px;
+    }
+
+    .subtitle {
+        font-size: 17px;
+    }
+
+    .timestamp {
+
+        position: static;
+
+        display: inline-block;
+
+        margin-top: 10px;
+
+        font-size: 18px;
+    }
+
+    .viewport {
+        top: 175px;
+    }
+
+    .report {
+        padding:
+            35px 35px 250px;
+    }
+
+    .weather-section p {
+        font-size: 22px;
+    }
+
+    .weather-section h2 {
+        font-size: 27px;
+    }
+}
+
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<header class="header">
+
+    <div class="title">
+        🌊 Seewetterbericht Ostsee
+    </div>
+
+    <div class="subtitle">
+        Deutscher Wetterdienst · Seewetterdienst Hamburg
+    </div>
+
+    <div class="timestamp">
+        20.08.2026 - 16:00 Uhr
+    </div>
+
+</header>
+
+
+<div class="viewport">
+
+    <div class="scroller">
+
+        <main class="report">
+
+            
+        <section class="weather-section">
+
+            <h2>Wetterlage:</h2>
+
+            
+
+        </section>
+    
+
+        <section class="weather-section">
+
+            <h2>Vorhersage fuer Donnerstag:</h2>
+
+            
+
+        </section>
+    
+
+        <section class="weather-section">
+
+            <h2>Vorhersage fuer Freitag:</h2>
+
+            <p>Das aktuelle Ostsee-Wetter  sehen Sie hier .</p>
+
+        </section>
+    
+
+            <div class="source">
+
+                Quelle:
+                Deutscher Wetterdienst,
+                Seewetterdienst Hamburg
+
+                <br><br>
+
+                Automatisch aktualisiert über
+                ostsee-charter-yacht.de
+
+            </div>
+
+        </main>
+
+    </div>
+
+</div>
+
+
+</body>
+
+</html>
