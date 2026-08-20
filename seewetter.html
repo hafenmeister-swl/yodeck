@@ -18,7 +18,12 @@
 
 <title>Seewetterbericht Ostsee</title>
 
+
 <style>
+
+/* =========================================================
+   BASE
+   ========================================================= */
 
 * {
     box-sizing: border-box;
@@ -26,10 +31,13 @@
 
 html,
 body {
+
     margin: 0;
     padding: 0;
+
     width: 100%;
     height: 100%;
+
 }
 
 body {
@@ -37,12 +45,12 @@ body {
     background:
         linear-gradient(
             180deg,
-            #041522 0%,
-            #08283b 55%,
-            #03111c 100%
+            #031522 0%,
+            #082b3e 55%,
+            #03121d 100%
         );
 
-    color: #f4f8fa;
+    color: #f5f8fa;
 
     font-family:
         Arial,
@@ -50,41 +58,47 @@ body {
         sans-serif;
 
     overflow: hidden;
+
 }
 
 
-/* ---------------------------------------------------------
+/* =========================================================
    HEADER
-   --------------------------------------------------------- */
+   ========================================================= */
 
 .header {
 
     position: fixed;
 
-    z-index: 10;
+    z-index: 100;
 
     top: 0;
     left: 0;
     right: 0;
 
-    min-height: 125px;
+    height: 140px;
 
-    padding: 24px 55px;
+    padding: 25px 55px;
 
     background:
         linear-gradient(
             180deg,
-            rgba(3,17,28,0.99),
-            rgba(3,17,28,0.92)
+            rgba(2,16,27,0.99),
+            rgba(2,16,27,0.94)
         );
 
     border-bottom:
-        2px solid rgba(100,190,220,0.25);
+        2px solid rgba(100,200,230,0.30);
 
     box-shadow:
-        0 5px 25px rgba(0,0,0,0.4);
+        0 5px 25px rgba(0,0,0,0.45);
+
 }
 
+
+/* =========================================================
+   TITLE
+   ========================================================= */
 
 .title {
 
@@ -96,75 +110,88 @@ body {
 
     font-weight: 700;
 
-    letter-spacing: 0.5px;
 }
 
 
 .subtitle {
 
-    margin-top: 7px;
+    margin-top: 8px;
 
     font-size: 20px;
 
-    color: #85cfe5;
+    color: #83d2e8;
+
 }
 
+
+/* =========================================================
+   TIMESTAMP
+   ========================================================= */
 
 .timestamp {
 
     position: absolute;
 
+    top: 32px;
     right: 55px;
-    top: 30px;
 
-    padding: 12px 20px;
+    padding: 13px 20px;
 
     border-radius: 8px;
 
-    border:
-        1px solid rgba(100,210,235,0.45);
-
     background:
-        rgba(20,95,120,0.4);
+        rgba(12,91,118,0.42);
 
-    color: #c5f3fc;
+    border:
+        1px solid rgba(110,215,240,0.45);
+
+    color: #c8f4fc;
 
     font-size: 23px;
 
     font-weight: 700;
 
     white-space: nowrap;
+
 }
 
 
-/* ---------------------------------------------------------
-   SCROLLING AREA
-   --------------------------------------------------------- */
+/* =========================================================
+   VIEWPORT
+   ========================================================= */
 
 .viewport {
 
     position: fixed;
 
-    top: 125px;
+    top: 140px;
     bottom: 0;
 
     left: 0;
     right: 0;
 
     overflow: hidden;
+
 }
 
+
+/* =========================================================
+   SCROLLER
+   ========================================================= */
 
 .scroller {
 
-    width: 100%;
-
     animation:
-        autoScroll 110s
+        autoScroll 100s
         linear
         infinite;
+
 }
 
+
+/* =========================================================
+   REPORT
+   ========================================================= */
 
 .report {
 
@@ -173,34 +200,38 @@ body {
     margin: 0 auto;
 
     padding:
-        45px 70px 300px;
+        45px 70px 350px;
+
 }
 
 
-/* ---------------------------------------------------------
-   SECTIONS
-   --------------------------------------------------------- */
+/* =========================================================
+   WEATHER SECTION
+   ========================================================= */
 
 .weather-section {
 
-    margin-bottom: 40px;
+    margin-bottom: 45px;
+
 }
 
 
 .weather-section h2 {
 
-    margin: 0 0 18px;
+    margin:
+        0 0 20px;
 
-    padding-bottom: 9px;
+    padding-bottom: 10px;
 
     border-bottom:
-        2px solid rgba(110,205,230,0.3);
+        2px solid rgba(100,205,230,0.30);
 
-    color: #7fd4ed;
+    color: #80d5ed;
 
-    font-size: 32px;
+    font-size: 33px;
 
     line-height: 1.2;
+
 }
 
 
@@ -209,38 +240,40 @@ body {
     margin:
         0 0 20px;
 
+    color: #f3f7f9;
+
     font-size: 28px;
 
     line-height: 1.6;
 
-    color: #f3f7f9;
 }
 
 
-/* ---------------------------------------------------------
+/* =========================================================
    FOOTER
-   --------------------------------------------------------- */
+   ========================================================= */
 
 .source {
 
-    margin-top: 40px;
+    margin-top: 50px;
 
     padding-top: 25px;
 
     border-top:
-        1px solid rgba(120,190,210,0.25);
+        1px solid rgba(110,190,215,0.25);
 
-    color: #88a8b5;
+    color: #83a5b2;
 
     font-size: 17px;
 
     line-height: 1.5;
+
 }
 
 
-/* ---------------------------------------------------------
+/* =========================================================
    AUTOMATIC SCROLL
-   --------------------------------------------------------- */
+   ========================================================= */
 
 @keyframes autoScroll {
 
@@ -266,14 +299,19 @@ body {
 }
 
 
-/* ---------------------------------------------------------
-   YODECK / SMALLER SCREEN
-   --------------------------------------------------------- */
+/* =========================================================
+   SMALLER DISPLAY
+   ========================================================= */
 
 @media (max-width: 1100px) {
 
     .header {
-        padding: 20px 30px;
+
+        height: 175px;
+
+        padding:
+            20px 30px;
+
     }
 
     .title {
@@ -293,6 +331,7 @@ body {
         margin-top: 10px;
 
         font-size: 18px;
+
     }
 
     .viewport {
@@ -300,17 +339,20 @@ body {
     }
 
     .report {
+
         padding:
             35px 35px 250px;
+
+    }
+
+    .weather-section h2 {
+        font-size: 27px;
     }
 
     .weather-section p {
         font-size: 22px;
     }
 
-    .weather-section h2 {
-        font-size: 27px;
-    }
 }
 
 
@@ -350,28 +392,28 @@ body {
 
             <h2>Wetterlage:</h2>
 
-            
+            <p>Wetterlage:</p><p>Ein Tief 999 Finnischer Meerbusen fuellt sich auf. Ein weiteres Tief 1004 ueber England zieht zum Oslofjord. Ein Hoch 1028 weit suedlich der Irminger See andert etwas ostwaerts. Ein breiter Keil, der sich bis zum Nordteil der Norwegischen See erstreckt, schwenkt etwas suedwaerts.</p>
 
         </section>
-    
+        
 
         <section class="weather-section">
 
             <h2>Vorhersage fuer Donnerstag:</h2>
 
-            
+            <p>Vorhersage fuer Donnerstag:</p><p>Kattegat</p><p>Wind: Suedwestliche Winde um 4. Sicht/Wetter: Zeitweise Gewitter mit schlechter Sicht. Seegang: Suedteil anfangs 1,5 Meter.</p><p>Belte und Sund</p><p>Wind: Suedwestliche Winde um 4. Sicht/Wetter: Zeitweise Gewitter mit schlechter Sicht. Seegang: Anfangs 1 Meter.</p><p>Westliche Ostsee</p><p>Wind: Suedwestliche Winde um 3, zunehmend 4 bis 5. Sicht/Wetter: Zeitweise Gewitter mit schlechter Sicht. Seegang: 1 Meter.</p>
 
         </section>
-    
+        
 
         <section class="weather-section">
 
             <h2>Vorhersage fuer Freitag:</h2>
 
-            <p>Das aktuelle Ostsee-Wetter  sehen Sie hier .</p>
+            <p>Vorhersage fuer Freitag:</p><p>Kattegat</p><p>Wind: West bis Suedwest 3 bis 4, zunehmend um 5. Sicht/Wetter: Anfangs Gewitter mit schlechter Sicht. Seegang: Spaeter 1,5 Meter.</p><p>Belte und Sund</p><p>Wind: Suedwest bis West 3 bis 4. Sicht/Wetter: Strichweise Gewitter mit schlechter Sicht. Seegang: 0,5 Meter.</p><p>Westliche Ostsee</p><p>Wind: Suedwest 4 bis 5, nordwestdrehend, voruebergehend abnehmend 3. Sicht/Wetter: Strichweise Gewitter mit schlechter Sicht. Seegang: 1 Meter.</p><p>Die ostsee.de INFO GmbH übernimmt keine Gewähr für die Richtigkeit der Informationen!</p><p>Das aktuelle Ostsee-Wetter sehen Sie</p><p>hier</p><p>.</p><p>Impressum</p><p>Datenschutz</p><p>RSS Feed</p><p>Zuklappen</p>
 
         </section>
-    
+        
 
             <div class="source">
 
