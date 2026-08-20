@@ -1,11 +1,10 @@
 name: Update Seewetterbericht
 
 on:
-  schedule:
-    # Every 30 minutes
-    - cron: "*/30 * * * *"
-
   workflow_dispatch:
+
+  schedule:
+    - cron: "*/15 * * * *"
 
 permissions:
   contents: write
@@ -15,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -27,9 +27,14 @@ jobs:
         run: |
           pip install requests beautifulsoup4
 
-      - name: Fetch and extract weather report
+      - name: Generate Seewetterbericht
         run: |
           python fetch_weather.py
+
+      - name: Check generated file
+        run: |
+          ls -la
+          test -f seewetter.html
 
       - name: Commit updated report
         run: |
@@ -39,7 +44,7 @@ jobs:
           git add seewetter.html
 
           if git diff --cached --quiet; then
-            echo "No changes."
+            echo "No changes to commit."
           else
             git commit -m "Update Seewetterbericht"
             git push
