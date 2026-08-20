@@ -525,6 +525,4 @@ OUTPUT.write_text(
     encoding="utf-8"
 )
 
-print(
-    f"Seewetterbericht updated: {OUTPUT}"
-)
+print(f"Seewetterbericht updated: {OUTPUT}")
