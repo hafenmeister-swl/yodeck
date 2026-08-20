@@ -1,5 +1,5 @@
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 from pathlib import Path
 from html import escape
 import re
@@ -16,9 +16,9 @@ HEADERS = {
 }
 
 
-# ------------------------------------------------------------
-# Download source page
-# ------------------------------------------------------------
+# ============================================================
+# DOWNLOAD
+# ============================================================
 
 response = requests.get(
     SOURCE_URL,
@@ -30,17 +30,15 @@ response.raise_for_status()
 
 print("Downloaded:", SOURCE_URL)
 print("HTTP status:", response.status_code)
-print("Content length:", len(response.text))
 
 
-# ------------------------------------------------------------
-# Parse HTML
-# ------------------------------------------------------------
+# ============================================================
+# PARSE
+# ============================================================
 
 soup = BeautifulSoup(response.text, "html.parser")
 
-
-# Remove scripts, navigation, etc.
+# Remove things we definitely don't want
 for tag in soup([
     "script",
     "style",
@@ -49,172 +47,190 @@ for tag in soup([
     "form",
     "nav",
     "header",
-    "footer"
+    "footer",
+    "button"
 ]):
     tag.decompose()
 
 
-# ------------------------------------------------------------
-# Find the report title
-# ------------------------------------------------------------
+# ============================================================
+# FIND TITLE
+# ============================================================
 
-title = soup.find("h1")
+h1 = soup.find("h1")
 
-if not title:
-    raise RuntimeError(
-        "Could not find the Seewetterbericht heading."
-    )
+if not h1:
+    raise RuntimeError("Could not find H1.")
 
-title_text = title.get_text(" ", strip=True)
+title = h1.get_text(" ", strip=True)
 
-print("Title:", title_text)
+print("Title:", title)
 
 
-# ------------------------------------------------------------
-# Find timestamp
-# ------------------------------------------------------------
+# ============================================================
+# FIND TIMESTAMP
+# ============================================================
 
-timestamp = None
+timestamp = "Aktueller Bericht"
 
-# Look at text immediately following the H1
-for element in title.find_all_next():
+# Search the text following the H1
+for text_node in h1.find_all_next(string=True):
 
-    text = element.get_text(" ", strip=True)
+    text = str(text_node).strip()
 
     if not text:
         continue
 
     match = re.search(
-        r"(?:herausgegeben.*?am\s+)?"
         r"(\d{1,2}\.\d{1,2}\.\d{4}\s*-\s*\d{1,2}:\d{2}\s*Uhr)",
-        text,
-        re.IGNORECASE
+        text
     )
 
     if match:
         timestamp = match.group(1)
         break
 
-
-if not timestamp:
-    timestamp = "Aktueller Bericht"
-
-
 print("Timestamp:", timestamp)
 
 
-# ------------------------------------------------------------
-# Extract report sections
-# ------------------------------------------------------------
+# ============================================================
+# FIND WEATHER SECTIONS
+# ============================================================
 
-report = []
+headings = soup.find_all("h3")
 
-current_section = None
+print("Found headings:", len(headings))
 
-# Start reading after the H1
-for element in title.find_all_next():
 
-    if element.name in ["h2", "h3", "h4"]:
+sections = []
 
-        text = element.get_text(" ", strip=True)
+for heading in headings:
 
-        if not text:
-            continue
+    heading_text = heading.get_text(" ", strip=True)
 
-        # Stop at unrelated content
-        if text.lower() in [
-            "das aktuelle ostsee-wetter sehen sie hier",
-            "mehr informationen"
-        ]:
+    if not heading_text:
+        continue
+
+    # Only keep actual weather sections
+    if not any(word in heading_text.lower() for word in [
+        "wetterlage",
+        "vorhersage"
+    ]):
+        continue
+
+    print("Processing section:", heading_text)
+
+    texts = []
+
+    # Walk through every text node after this heading
+    # until the next h3.
+    for node in heading.find_all_next(string=True):
+
+        # Stop at the next section heading
+        parent = node.parent
+
+        if parent and parent.name == "h3":
             break
 
-        current_section = {
-            "title": text,
-            "content": []
-        }
-
-        report.append(current_section)
-
-    elif element.name in ["p", "li"]:
-
-        text = element.get_text(" ", strip=True)
+        text = str(node).strip()
 
         if not text:
             continue
 
+        # Remove whitespace noise
+        text = re.sub(r"\s+", " ", text).strip()
+
+        # Ignore known website clutter
         lower = text.lower()
 
-        # Ignore website clutter
         if any(ignore in lower for ignore in [
-            "gedruckt von",
             "bericht drucken",
+            "gedruckt von",
             "für smartphone",
             "drucken",
-            "ostsee.de info gmbh übernimmt"
+            "quelle:",
+            "die ostsee.de info gmbh"
         ]):
             continue
 
-        if current_section:
-            current_section["content"].append(text)
+        texts.append(text)
 
 
-# ------------------------------------------------------------
-# Check extraction
-# ------------------------------------------------------------
+    # Remove duplicates while preserving order
+    unique_texts = []
 
-if not report:
+    for text in texts:
+        if text not in unique_texts:
+            unique_texts.append(text)
+
+
+    if unique_texts:
+
+        sections.append({
+            "title": heading_text,
+            "texts": unique_texts
+        })
+
+
+# ============================================================
+# CHECK
+# ============================================================
+
+if not sections:
     raise RuntimeError(
-        "No weather report sections could be extracted."
+        "No weather content could be extracted."
     )
 
 
-print("Sections found:", len(report))
+print("")
+print("======================================")
+print("WEATHER CONTENT FOUND")
+print("======================================")
 
-for section in report:
-    print(
-        " -",
-        section["title"],
-        ":",
-        len(section["content"]),
-        "paragraph(s)"
-    )
+for section in sections:
+
+    print("")
+    print(section["title"])
+
+    for text in section["texts"]:
+        print("  >", text)
 
 
-# ------------------------------------------------------------
-# Generate HTML
-# ------------------------------------------------------------
+# ============================================================
+# CREATE HTML
+# ============================================================
 
-sections_html = []
+section_html = []
 
-for section in report:
+for section in sections:
 
-    paragraphs = []
+    content = []
 
-    for text in section["content"]:
+    for text in section["texts"]:
 
-        paragraphs.append(
-            f"<p>{escape(text)}</p>"
+        content.append(
+            f'<p>{escape(text)}</p>'
         )
 
-    section_html = f"""
+    section_html.append(
+        f"""
         <section class="weather-section">
 
             <h2>{escape(section["title"])}</h2>
 
-            {"".join(paragraphs)}
+            {"".join(content)}
 
         </section>
-    """
-
-    sections_html.append(section_html)
-
-
-report_html = "\n".join(sections_html)
+        """
+    )
 
 
-# ------------------------------------------------------------
-# Generate Yodeck display
-# ------------------------------------------------------------
+report_html = "\n".join(section_html)
+
+
+# ============================================================
+# YODECK DISPLAY
+# ============================================================
 
 html = f"""<!DOCTYPE html>
 
@@ -236,7 +252,12 @@ html = f"""<!DOCTYPE html>
 
 <title>Seewetterbericht Ostsee</title>
 
+
 <style>
+
+/* ==========================================================
+   BASE
+   ========================================================== */
 
 * {{
     box-sizing: border-box;
@@ -244,10 +265,13 @@ html = f"""<!DOCTYPE html>
 
 html,
 body {{
+
     margin: 0;
     padding: 0;
+
     width: 100%;
     height: 100%;
+
 }}
 
 body {{
@@ -255,12 +279,12 @@ body {{
     background:
         linear-gradient(
             180deg,
-            #041522 0%,
-            #08283b 55%,
-            #03111c 100%
+            #031521 0%,
+            #082a3d 50%,
+            #03121d 100%
         );
 
-    color: #f4f8fa;
+    color: #f5f8fa;
 
     font-family:
         Arial,
@@ -268,41 +292,47 @@ body {{
         sans-serif;
 
     overflow: hidden;
+
 }}
 
 
-/* ---------------------------------------------------------
+/* ==========================================================
    HEADER
-   --------------------------------------------------------- */
+   ========================================================== */
 
 .header {{
 
     position: fixed;
 
-    z-index: 10;
+    z-index: 100;
 
     top: 0;
     left: 0;
     right: 0;
 
-    min-height: 125px;
+    min-height: 135px;
 
-    padding: 24px 55px;
+    padding: 25px 55px;
 
     background:
         linear-gradient(
             180deg,
-            rgba(3,17,28,0.99),
-            rgba(3,17,28,0.92)
+            rgba(2,16,27,0.99),
+            rgba(2,16,27,0.93)
         );
 
     border-bottom:
-        2px solid rgba(100,190,220,0.25);
+        2px solid rgba(100,200,230,0.3);
 
     box-shadow:
-        0 5px 25px rgba(0,0,0,0.4);
+        0 5px 25px rgba(0,0,0,0.45);
+
 }}
 
+
+/* ==========================================================
+   TITLE
+   ========================================================== */
 
 .title {{
 
@@ -315,74 +345,89 @@ body {{
     font-weight: 700;
 
     letter-spacing: 0.5px;
+
 }}
 
 
 .subtitle {{
 
-    margin-top: 7px;
+    margin-top: 8px;
 
     font-size: 20px;
 
-    color: #85cfe5;
+    color: #83d2e8;
+
 }}
 
+
+/* ==========================================================
+   TIMESTAMP
+   ========================================================== */
 
 .timestamp {{
 
     position: absolute;
 
     right: 55px;
-    top: 30px;
+    top: 31px;
 
-    padding: 12px 20px;
+    padding: 13px 20px;
 
     border-radius: 8px;
 
-    border:
-        1px solid rgba(100,210,235,0.45);
-
     background:
-        rgba(20,95,120,0.4);
+        rgba(12,91,118,0.42);
 
-    color: #c5f3fc;
+    border:
+        1px solid rgba(110,215,240,0.45);
+
+    color: #c8f4fc;
 
     font-size: 23px;
 
     font-weight: 700;
 
     white-space: nowrap;
+
 }}
 
 
-/* ---------------------------------------------------------
-   SCROLLING AREA
-   --------------------------------------------------------- */
+/* ==========================================================
+   VIEWPORT
+   ========================================================== */
 
 .viewport {{
 
     position: fixed;
 
-    top: 125px;
+    top: 135px;
     bottom: 0;
 
     left: 0;
     right: 0;
 
     overflow: hidden;
+
 }}
 
+
+/* ==========================================================
+   SCROLLER
+   ========================================================== */
 
 .scroller {{
 
-    width: 100%;
-
     animation:
-        autoScroll 110s
+        autoScroll 100s
         linear
         infinite;
+
 }}
 
+
+/* ==========================================================
+   REPORT
+   ========================================================== */
 
 .report {{
 
@@ -391,74 +436,80 @@ body {{
     margin: 0 auto;
 
     padding:
-        45px 70px 300px;
+        45px 70px 350px;
+
 }}
 
 
-/* ---------------------------------------------------------
+/* ==========================================================
    SECTIONS
-   --------------------------------------------------------- */
+   ========================================================== */
 
 .weather-section {{
 
-    margin-bottom: 40px;
+    margin-bottom: 45px;
+
 }}
 
 
 .weather-section h2 {{
 
-    margin: 0 0 18px;
+    margin:
+        0 0 20px;
 
-    padding-bottom: 9px;
+    padding-bottom: 10px;
 
     border-bottom:
-        2px solid rgba(110,205,230,0.3);
+        2px solid rgba(100,205,230,0.3);
 
-    color: #7fd4ed;
+    color: #80d5ed;
 
-    font-size: 32px;
+    font-size: 33px;
 
     line-height: 1.2;
+
 }}
 
 
 .weather-section p {{
 
     margin:
-        0 0 20px;
+        0 0 18px;
+
+    color: #f3f7f9;
 
     font-size: 28px;
 
     line-height: 1.6;
 
-    color: #f3f7f9;
 }}
 
 
-/* ---------------------------------------------------------
-   FOOTER
-   --------------------------------------------------------- */
+/* ==========================================================
+   SOURCE
+   ========================================================== */
 
 .source {{
 
-    margin-top: 40px;
+    margin-top: 45px;
 
     padding-top: 25px;
 
     border-top:
-        1px solid rgba(120,190,210,0.25);
+        1px solid rgba(110,190,215,0.25);
 
-    color: #88a8b5;
+    color: #83a5b2;
 
     font-size: 17px;
 
     line-height: 1.5;
+
 }}
 
 
-/* ---------------------------------------------------------
+/* ==========================================================
    AUTOMATIC SCROLL
-   --------------------------------------------------------- */
+   ========================================================== */
 
 @keyframes autoScroll {{
 
@@ -484,22 +535,29 @@ body {{
 }}
 
 
-/* ---------------------------------------------------------
-   YODECK / SMALLER SCREEN
-   --------------------------------------------------------- */
+/* ==========================================================
+   SMALLER SCREENS
+   ========================================================== */
 
 @media (max-width: 1100px) {{
 
     .header {{
-        padding: 20px 30px;
+
+        padding:
+            20px 30px;
+
     }}
 
     .title {{
+
         font-size: 32px;
+
     }}
 
     .subtitle {{
+
         font-size: 17px;
+
     }}
 
     .timestamp {{
@@ -511,24 +569,34 @@ body {{
         margin-top: 10px;
 
         font-size: 18px;
+
     }}
 
     .viewport {{
+
         top: 175px;
+
     }}
 
     .report {{
+
         padding:
             35px 35px 250px;
-    }}
 
-    .weather-section p {{
-        font-size: 22px;
     }}
 
     .weather-section h2 {{
+
         font-size: 27px;
+
     }}
+
+    .weather-section p {{
+
+        font-size: 22px;
+
+    }}
+
 }}
 
 
@@ -591,16 +659,17 @@ body {{
 """
 
 
-# ------------------------------------------------------------
-# Write output
-# ------------------------------------------------------------
+# ==========================================================
+# WRITE FILE
+# ==========================================================
 
 OUTPUT.write_text(
     html,
     encoding="utf-8"
 )
 
-print(
-    "Successfully created:",
-    OUTPUT
-)
+print("")
+print("======================================")
+print("SUCCESS")
+print("======================================")
+print("Created:", OUTPUT)
