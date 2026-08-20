@@ -5,7 +5,7 @@ import re
 from datetime import datetime, timezone
 
 SOURCE_URL = "https://www.ostsee-charter-yacht.de/aktueller-seewetterbericht-drucken.php"
-OUTPUT = Path("docs/index.html")
+OUTPUT = Path("seewetter.html")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; Seewetterbericht/1.0)"
