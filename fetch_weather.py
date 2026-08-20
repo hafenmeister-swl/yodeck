@@ -1,21 +1,24 @@
 import requests
 from bs4 import BeautifulSoup
 from pathlib import Path
+from html import escape
 import re
-from datetime import datetime, timezone
 
-SOURCE_URL = "https://www.ostsee-charter-yacht.de/aktueller-seewetterbericht-drucken.php"
+SOURCE_URL = "https://www.ostsee-charter-yacht.de/aktueller-seewetterbericht.php"
 OUTPUT = Path("seewetter.html")
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; Seewetterbericht/1.0)"
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0 Safari/537.36"
+    )
 }
 
 
-def clean_text(text):
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
-
+# ------------------------------------------------------------
+# Download source page
+# ------------------------------------------------------------
 
 response = requests.get(
     SOURCE_URL,
@@ -25,16 +28,25 @@ response = requests.get(
 
 response.raise_for_status()
 
+print("Downloaded:", SOURCE_URL)
+print("HTTP status:", response.status_code)
+print("Content length:", len(response.text))
+
+
+# ------------------------------------------------------------
+# Parse HTML
+# ------------------------------------------------------------
+
 soup = BeautifulSoup(response.text, "html.parser")
 
-# Remove scripts and anything related to printing/navigation
+
+# Remove scripts, navigation, etc.
 for tag in soup([
     "script",
     "style",
     "noscript",
     "iframe",
     "form",
-    "button",
     "nav",
     "header",
     "footer"
@@ -43,130 +55,169 @@ for tag in soup([
 
 
 # ------------------------------------------------------------
-# Try to identify the main report content
+# Find the report title
 # ------------------------------------------------------------
 
-main = (
-    soup.find("main")
-    or soup.find("article")
-    or soup.find(id=re.compile("content|main|weather|wetter", re.I))
-)
+title = soup.find("h1")
 
-if not main:
-    main = soup.body
+if not title:
+    raise RuntimeError(
+        "Could not find the Seewetterbericht heading."
+    )
 
-if not main:
-    raise RuntimeError("Could not find page content.")
+title_text = title.get_text(" ", strip=True)
 
-
-# ------------------------------------------------------------
-# Extract useful text blocks
-# ------------------------------------------------------------
-
-blocks = []
-
-for element in main.find_all([
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "p",
-    "li",
-    "dt",
-    "dd"
-]):
-
-    text = clean_text(element.get_text(" ", strip=True))
-
-    if not text:
-        continue
-
-    # Ignore website/navigation/printing clutter
-    lower = text.lower()
-
-    if any(x in lower for x in [
-        "druckversion",
-        "drucken",
-        "print",
-        "zurück",
-        "home",
-        "menü",
-        "navigation",
-        "gedruckt von"
-    ]):
-        continue
-
-    blocks.append((element.name, text))
-
-
-if not blocks:
-    raise RuntimeError("No report content could be extracted.")
+print("Title:", title_text)
 
 
 # ------------------------------------------------------------
-# Detect timestamp
+# Find timestamp
 # ------------------------------------------------------------
 
 timestamp = None
 
-for _, text in blocks:
+# Look at text immediately following the H1
+for element in title.find_all_next():
 
-    if re.search(
-        r"\b\d{1,2}[.:]\d{2}\s*(?:uhr)?\b",
+    text = element.get_text(" ", strip=True)
+
+    if not text:
+        continue
+
+    match = re.search(
+        r"(?:herausgegeben.*?am\s+)?"
+        r"(\d{1,2}\.\d{1,2}\.\d{4}\s*-\s*\d{1,2}:\d{2}\s*Uhr)",
         text,
         re.IGNORECASE
-    ):
-        timestamp = text
-        break
-
-if not timestamp:
-    timestamp = "Aktueller Seewetterbericht"
-
-
-# ------------------------------------------------------------
-# Build report HTML
-# ------------------------------------------------------------
-
-report_html = []
-
-for tag, text in blocks:
-
-    escaped = (
-        text
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
     )
 
-    if tag == "h1":
-        report_html.append(
-            f'<h2 class="section-title">{escaped}</h2>'
-        )
-
-    elif tag in ["h2", "h3", "h4"]:
-        report_html.append(
-            f'<h2 class="section-title">{escaped}</h2>'
-        )
-
-    else:
-        report_html.append(
-            f'<p>{escaped}</p>'
-        )
+    if match:
+        timestamp = match.group(1)
+        break
 
 
-report_html = "\n".join(report_html)
+if not timestamp:
+    timestamp = "Aktueller Bericht"
+
+
+print("Timestamp:", timestamp)
 
 
 # ------------------------------------------------------------
-# Generate page
+# Extract report sections
 # ------------------------------------------------------------
 
-generated = datetime.now(timezone.utc).strftime(
-    "%d.%m.%Y %H:%M UTC"
-)
+report = []
 
+current_section = None
+
+# Start reading after the H1
+for element in title.find_all_next():
+
+    if element.name in ["h2", "h3", "h4"]:
+
+        text = element.get_text(" ", strip=True)
+
+        if not text:
+            continue
+
+        # Stop at unrelated content
+        if text.lower() in [
+            "das aktuelle ostsee-wetter sehen sie hier",
+            "mehr informationen"
+        ]:
+            break
+
+        current_section = {
+            "title": text,
+            "content": []
+        }
+
+        report.append(current_section)
+
+    elif element.name in ["p", "li"]:
+
+        text = element.get_text(" ", strip=True)
+
+        if not text:
+            continue
+
+        lower = text.lower()
+
+        # Ignore website clutter
+        if any(ignore in lower for ignore in [
+            "gedruckt von",
+            "bericht drucken",
+            "für smartphone",
+            "drucken",
+            "ostsee.de info gmbh übernimmt"
+        ]):
+            continue
+
+        if current_section:
+            current_section["content"].append(text)
+
+
+# ------------------------------------------------------------
+# Check extraction
+# ------------------------------------------------------------
+
+if not report:
+    raise RuntimeError(
+        "No weather report sections could be extracted."
+    )
+
+
+print("Sections found:", len(report))
+
+for section in report:
+    print(
+        " -",
+        section["title"],
+        ":",
+        len(section["content"]),
+        "paragraph(s)"
+    )
+
+
+# ------------------------------------------------------------
+# Generate HTML
+# ------------------------------------------------------------
+
+sections_html = []
+
+for section in report:
+
+    paragraphs = []
+
+    for text in section["content"]:
+
+        paragraphs.append(
+            f"<p>{escape(text)}</p>"
+        )
+
+    section_html = f"""
+        <section class="weather-section">
+
+            <h2>{escape(section["title"])}</h2>
+
+            {"".join(paragraphs)}
+
+        </section>
+    """
+
+    sections_html.append(section_html)
+
+
+report_html = "\n".join(sections_html)
+
+
+# ------------------------------------------------------------
+# Generate Yodeck display
+# ------------------------------------------------------------
 
 html = f"""<!DOCTYPE html>
+
 <html lang="de">
 
 <head>
@@ -185,12 +236,11 @@ html = f"""<!DOCTYPE html>
 
 <title>Seewetterbericht Ostsee</title>
 
-
 <style>
 
-/* =========================================================
-   YODECK / MARITIME DISPLAY
-   ========================================================= */
+* {{
+    box-sizing: border-box;
+}}
 
 html,
 body {{
@@ -198,87 +248,85 @@ body {{
     padding: 0;
     width: 100%;
     height: 100%;
+}}
+
+body {{
 
     background:
         linear-gradient(
             180deg,
-            #061827 0%,
-            #08283c 50%,
-            #04131f 100%
+            #041522 0%,
+            #08283b 55%,
+            #03111c 100%
         );
 
-    color: #f2f7fa;
+    color: #f4f8fa;
 
     font-family:
         Arial,
         Helvetica,
         sans-serif;
-}}
 
-
-body {{
     overflow: hidden;
 }}
 
 
-/* =========================================================
+/* ---------------------------------------------------------
    HEADER
-   ========================================================= */
+   --------------------------------------------------------- */
 
 .header {{
 
     position: fixed;
 
+    z-index: 10;
+
     top: 0;
     left: 0;
     right: 0;
 
-    z-index: 100;
+    min-height: 125px;
 
-    padding: 28px 55px 24px;
+    padding: 24px 55px;
 
     background:
         linear-gradient(
             180deg,
-            rgba(4,18,30,0.98),
-            rgba(4,18,30,0.90)
+            rgba(3,17,28,0.99),
+            rgba(3,17,28,0.92)
         );
 
     border-bottom:
-        2px solid rgba(110,190,220,0.25);
+        2px solid rgba(100,190,220,0.25);
 
     box-shadow:
-        0 8px 30px rgba(0,0,0,0.35);
+        0 5px 25px rgba(0,0,0,0.4);
 }}
 
 
 .title {{
 
+    margin: 0;
+
     font-size: 42px;
+
+    line-height: 1.1;
 
     font-weight: 700;
 
-    letter-spacing: 1px;
-
-    margin: 0;
-
-    color: #ffffff;
+    letter-spacing: 0.5px;
 }}
 
 
 .subtitle {{
 
-    margin-top: 8px;
+    margin-top: 7px;
 
-    font-size: 21px;
+    font-size: 20px;
 
-    color: #8fd3e8;
+    color: #85cfe5;
 }}
 
-
-/* =========================================================
-   TIMESTAMP
-   ========================================================= */
 
 .timestamp {{
 
@@ -287,33 +335,33 @@ body {{
     right: 55px;
     top: 30px;
 
-    padding: 13px 20px;
+    padding: 12px 20px;
 
     border-radius: 8px;
 
-    background:
-        rgba(20,92,119,0.35);
-
     border:
-        1px solid rgba(120,210,235,0.35);
+        1px solid rgba(100,210,235,0.45);
 
-    color: #b9edf9;
+    background:
+        rgba(20,95,120,0.4);
 
-    font-size: 22px;
+    color: #c5f3fc;
 
-    font-weight: 600;
+    font-size: 23px;
+
+    font-weight: 700;
 
     white-space: nowrap;
 }}
 
 
-/* =========================================================
-   REPORT
-   ========================================================= */
+/* ---------------------------------------------------------
+   SCROLLING AREA
+   --------------------------------------------------------- */
 
 .viewport {{
 
-    position: absolute;
+    position: fixed;
 
     top: 125px;
     bottom: 0;
@@ -325,76 +373,94 @@ body {{
 }}
 
 
-.report {{
+.scroller {{
 
-    max-width: 1200px;
-
-    margin: 0 auto;
-
-    padding:
-        45px 70px 250px;
-
-    font-size: 27px;
-
-    line-height: 1.65;
+    width: 100%;
 
     animation:
-        scrollReport 100s
+        autoScroll 110s
         linear
         infinite;
 }}
 
 
-.section-title {{
+.report {{
 
-    margin-top: 38px;
-    margin-bottom: 14px;
+    max-width: 1250px;
 
-    padding-bottom: 8px;
+    margin: 0 auto;
 
-    font-size: 31px;
+    padding:
+        45px 70px 300px;
+}}
 
-    line-height: 1.25;
 
-    color: #82d4ec;
+/* ---------------------------------------------------------
+   SECTIONS
+   --------------------------------------------------------- */
+
+.weather-section {{
+
+    margin-bottom: 40px;
+}}
+
+
+.weather-section h2 {{
+
+    margin: 0 0 18px;
+
+    padding-bottom: 9px;
 
     border-bottom:
-        1px solid rgba(120,210,235,0.25);
+        2px solid rgba(110,205,230,0.3);
+
+    color: #7fd4ed;
+
+    font-size: 32px;
+
+    line-height: 1.2;
 }}
 
 
-.report p {{
+.weather-section p {{
 
     margin:
-        0 0 18px;
+        0 0 20px;
 
-    color: #f1f5f7;
+    font-size: 28px;
+
+    line-height: 1.6;
+
+    color: #f3f7f9;
 }}
 
 
-/* =========================================================
-   SOURCE
-   ========================================================= */
+/* ---------------------------------------------------------
+   FOOTER
+   --------------------------------------------------------- */
 
 .source {{
 
-    max-width: 1200px;
+    margin-top: 40px;
 
-    margin: 30px auto 0;
+    padding-top: 25px;
 
-    padding: 25px 70px 80px;
+    border-top:
+        1px solid rgba(120,190,210,0.25);
+
+    color: #88a8b5;
 
     font-size: 17px;
 
-    color: #7fa4b2;
+    line-height: 1.5;
 }}
 
 
-/* =========================================================
+/* ---------------------------------------------------------
    AUTOMATIC SCROLL
-   ========================================================= */
+   --------------------------------------------------------- */
 
-@keyframes scrollReport {{
+@keyframes autoScroll {{
 
     0% {{
         transform: translateY(0);
@@ -405,9 +471,10 @@ body {{
     }}
 
     92% {{
-        transform: translateY(
-            calc(-100% + 850px)
-        );
+        transform:
+            translateY(
+                calc(-100% + 650px)
+            );
     }}
 
     100% {{
@@ -417,14 +484,14 @@ body {{
 }}
 
 
-/* =========================================================
-   SMALLER DISPLAYS
-   ========================================================= */
+/* ---------------------------------------------------------
+   YODECK / SMALLER SCREEN
+   --------------------------------------------------------- */
 
-@media (max-width: 1000px) {{
+@media (max-width: 1100px) {{
 
     .header {{
-        padding: 22px 30px;
+        padding: 20px 30px;
     }}
 
     .title {{
@@ -436,30 +503,32 @@ body {{
     }}
 
     .timestamp {{
+
         position: static;
 
         display: inline-block;
 
-        margin-top: 12px;
+        margin-top: 10px;
 
-        font-size: 17px;
+        font-size: 18px;
     }}
 
     .viewport {{
-        top: 155px;
+        top: 175px;
     }}
 
     .report {{
         padding:
-            35px 35px 200px;
+            35px 35px 250px;
+    }}
 
+    .weather-section p {{
         font-size: 22px;
     }}
 
-    .section-title {{
-        font-size: 26px;
+    .weather-section h2 {{
+        font-size: 27px;
     }}
-
 }}
 
 
@@ -473,43 +542,47 @@ body {{
 
 <header class="header">
 
-    <h1 class="title">
+    <div class="title">
         🌊 Seewetterbericht Ostsee
-    </h1>
+    </div>
 
     <div class="subtitle">
         Deutscher Wetterdienst · Seewetterdienst Hamburg
     </div>
 
     <div class="timestamp">
-        {timestamp}
+        {escape(timestamp)}
     </div>
 
 </header>
 
 
-<main class="viewport">
+<div class="viewport">
 
-    <article class="report">
+    <div class="scroller">
 
-        {report_html}
+        <main class="report">
 
-        <div class="source">
+            {report_html}
 
-            Quelle:
-            Deutscher Wetterdienst,
-            Seewetterdienst Hamburg
+            <div class="source">
 
-            <br><br>
+                Quelle:
+                Deutscher Wetterdienst,
+                Seewetterdienst Hamburg
 
-            Aktualisiert:
-            {generated}
+                <br><br>
 
-        </div>
+                Automatisch aktualisiert über
+                ostsee-charter-yacht.de
 
-    </article>
+            </div>
 
-</main>
+        </main>
+
+    </div>
+
+</div>
 
 
 </body>
@@ -518,11 +591,16 @@ body {{
 """
 
 
-OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+# ------------------------------------------------------------
+# Write output
+# ------------------------------------------------------------
 
 OUTPUT.write_text(
     html,
     encoding="utf-8"
 )
 
-print(f"Seewetterbericht updated: {OUTPUT}")
+print(
+    "Successfully created:",
+    OUTPUT
+)
